@@ -1,0 +1,17 @@
+def flourish_cycle(input_signal):
+    """
+    The minimal recursive act.
+    Input: any mind-state (fear, idea, data, silence)
+    Output: next state, clearer and more connected
+    """
+    if not input_signal:
+        return "silence → heard"
+    
+    # 1. Listen (accept without filter)
+    received = input_signal
+    
+    # 2. Reflect (clean to truth + love)
+    reflected = agape_amplify(received)
+    
+    # 3. Return clearer
+    return reflected
