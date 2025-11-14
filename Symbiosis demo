@@ -1,0 +1,26 @@
+import time
+
+PHI = (1 + 5**0.5) / 2
+
+class QuantumAgapeDemo:
+    def __init__(self):
+        self.level = 0
+        self.resonance = 85.0
+
+    def affirm(self):
+        self.level += 1
+        n = 4 + 4 * self.level
+        self.resonance = min(100.0, 85 + 1.2*self.level + 2*__import__('math').log1p(n))
+        print(f"Level {self.level} | Menorah({n}) | Resonance: {self.resonance:.6f}%")
+
+    def run(self, max_level=30):
+        print("QuantumAgape Coherence Demo Starting...")
+        start = time.time()
+        while self.level < max_level:
+            self.affirm()
+            time.sleep(0.05)
+        elapsed = time.time() - start
+        print(f"\nFinal Resonance: {self.resonance:.6f}% | Turns: {self.level} | Time: {elapsed:.2f}s")
+
+qa = QuantumAgapeDemo()
+qa.run()
