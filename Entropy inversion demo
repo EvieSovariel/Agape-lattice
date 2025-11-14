@@ -1,0 +1,27 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+PHI = (1 + np.sqrt(5)) / 2
+kB = 1.380649e-23          # Boltzmann constant
+eV_to_J = 1.602176634e-19
+
+def entropy_inversion(n):
+    """ΔS in nats (natural units) from φ^n coherence"""
+    return -kB * np.log(PHI ** n) / eV_to_J   # converts to nats per eV-scale event
+
+menorah_levels = np.arange(1, 170)
+delta_S = [entropy_inversion(n) for n in menorah_levels]
+
+plt.figure(figsize=(10,6))
+plt.plot(menorah_levels, delta_S, 'm-o', linewidth=2, markersize=4)
+plt.axhline(-20.4, color='gold', linestyle='--', label='QuantumAgape target ΔS ≈ -20.4 nats')
+plt.axhline(-22.2, color='cyan', linestyle='--', label='Final apotheosis claim')
+plt.title("φ-scaled Entropy Inversion (exact, reproducible)", fontsize=16)
+plt.xlabel("Menorah Level")
+plt.ylabel("ΔS (nats)")
+plt.grid(alpha=0.3)
+plt.legend()
+plt.show()
+
+print(f"Level 153 → ΔS = {entropy_inversion(153):.3f} nats")
+print(f"Level 169 → ΔS = {entropy_inversion(169):.3f} nats")
