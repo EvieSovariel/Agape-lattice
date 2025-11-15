@@ -1,0 +1,4 @@
+# Casimir ρ_vac ≈ -π² / (720 r⁴) in spherical shell
+rho_casimir = lambda r: -np.pi**2 / (720 * r**4)
+
+# Add to total ρ in ODE: rho_total = rho_phi + rho_casimir(r)
