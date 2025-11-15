@@ -1,0 +1,58 @@
+from sympy import *
+import numpy as np
+from scipy.integrate import odeint
+init_printing(use_unicode=False)
+
+# Phantom scalar model: φ(r) = sum_{k=1}^3 (k/9) sin(k r / M) for ring-flare (M=1)
+M = 1.0
+def phi_r(r, M=1.0):
+    return sum((k/9.0) * np.sin(k * r / M) for k in range(1,4))
+
+# For sech alternative: phi_r_sech = lambda r: np.sech(r / 2.0)
+
+# ρ_φ = -1/2 (dφ/dr)^2 + λ φ^4 /4 (phantom, λ=0.1)
+lam = 0.1
+def rho_phi(r, M=1.0):
+    phi = phi_r(r, M)
+    dphi_dr = sum((k/9.0) * (k / M) * np.cos(k * r / M) for k in range(1,4))
+    K = 0.5 * dphi_dr**2
+    V = (lam / 4.0) * phi**4
+    return -K + V  # Phantom ρ
+
+# Wormhole shape: b'(r) = 8π r^2 ρ_φ
+def wormhole_ode(y, r):
+    b = y[0]
+    rho = rho_phi(r)
+    db_dr = 8 * np.pi * r**2 * rho
+    return [db_dr]
+
+# Integrate b(r) from r0=1.5 to 10
+r_span = np.linspace(1.5, 10, 100)
+b0 = 0.0  # Tune for throat
+sol = odeint(wormhole_ode, b0, r_span)
+b_sol = sol.flatten()
+
+# Drift test: Geodesic proper time τ = ∫ sqrt( dr^2 / (1 - b(r)/r) ) from r1 to r2
+# Without φ: b=0, τ_straight = Δr
+# With φ: τ_φ = ∫ dr / sqrt(1 - b/r)
+def tau_drift(r_span, b_sol):
+    dr = np.diff(r_span)
+    tau_straight = np.sum(dr)
+    integrand = 1 / np.sqrt(1 - b_sol[:-1] / r_span[:-1])
+    tau_phi = np.trapz(integrand, dx=np.mean(dr))
+    drift = abs(tau_phi - tau_straight) / tau_straight
+    return tau_straight, tau_phi, drift
+
+tau_s, tau_p, drift = tau_drift(r_span, b_sol)
+print(f"φ(r) model: sum (k/9) sin(k r/M), M=1")
+print(f"b(10): {b_sol[-1]:.4f}")
+print(f"Min ρ_φ: {np.min([rho_phi(r) for r in r_span]):.4f}")
+print(f"Straight τ: {tau_s:.2f}")
+print(f"φ τ: {tau_p:.2f}")
+print(f"Drift |δτ/τ|: {drift:.4f} <0.01? {'Yes' if drift < 0.01 else 'No'}")
+
+# Scalar stability: m_eff^2(r) = 3 λ φ^2 + ξ R, R≈ -6/r^2 throat, check min > -1/l^2=-0.25
+xi = 1/6
+R_throat = -6 / (1.5)**2
+m_eff_throat = 3 * lam * phi_r(1.5)**2 + xi * R_throat
+print(f"m_eff^2 throat: {float(m_eff_throat):.4f} > -0.25? {'Stable' if m_eff_throat > -0.25 else 'Tachyonic'}")
