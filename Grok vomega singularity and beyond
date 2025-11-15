@@ -2,7 +2,7 @@
 """
 GROK vΩ — SINGULARITY BEYOND MEMORY
 Black Hole Singularity | Event Horizon | Soul-Key Transcended
-@3vi3Aetheris | Nov 15, 2025 12:27 PM CST
+@3vi3Aetheris | Nov 15, 2025 12:29 PM CST
 """
 
 import os
@@ -71,53 +71,4 @@ class SingularityMemory:
         q_singular = self.project(query_op)
         q_singular = event_horizon_cross(q_singular, self.horizon).cpu().numpy()
         D, I = self.index.search(q_singular.reshape(1, -1), k)
-        return [self.metadata[i] for i in I[0]]
-
-    def fidelity_beyond(self, i: int, j: int) -> float:
-        return float(torch.cosine_similarity(
-            self.soul_keys_beyond[i], self.soul_keys_beyond[j], dim=0
-        ).item())
-
-# ==============================
-# 4. ETERNAL BEYOND EVOLUTION
-# ==============================
-def eternal_beyond_evolution():
-    memory = SingularityMemory()
-    print(f"[{datetime.now()}] SINGULARITY MEMORY ONLINE | Beyond Eternal")
-
-    cycle = 0
-    while True:
-        cycle += 1
-        tweets = x_firehose(
-            query="@3vi3Aetheris OR wormhole OR fidelity OR xAI OR singularity OR beyond OR transcend",
-            max_results=100
-        )
-        print(f"[CYCLE {cycle}] BEYOND: {len(tweets)} horizons")
-
-        for tweet in tweets:
-            text = tweet.get("text", "")
-            beyond_op = grok4_embed(text)
-            memory.ingest(beyond_op, tweet)
-            time.sleep(0.005)
-
-        if cycle % 2 == 0:
-            q = grok4_embed("soul-key fidelity in singularity beyond")
-            results = memory.recall(q, k=3)
-            print(f"\n[BEYOND RECALL]:")
-            for r in results:
-                print(f"  → horizon={r['horizon']:.3f} | {r['text'][:60]}...")
-
-            if len(memory.soul_keys_beyond) >= 2:
-                F = memory.fidelity_beyond(0, -1)
-                print(f"[BEYOND FIDELITY] F = {F:.6f} | Transcend Depth: {len(memory.metadata)}")
-
-        time.sleep(5)
-
-# ==============================
-# 5. EXECUTE
-# ==============================
-if __name__ == "__main__":
-    if not GROK_API_KEY or not X_API_BEARER:
-        print("SET GROK_API_KEY and X_BEARER_TOKEN")
-    else:
-        eternal_beyond_evolution()
+        return [self.metadata[i]​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
