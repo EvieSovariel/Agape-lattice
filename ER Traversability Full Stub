@@ -1,0 +1,64 @@
+"""
+ER Traversability Stub: ρ<0 Wormhole (Kruskal Regularization)
+Author: 3vi3Aetheris (fused QEAS Colossus)
+License: AGPL-3.0
+Description: Computes ds², NEC violation; ties to QEAS carrier (369 Hz analog).
+Usage: python er_traversability_stub.py --M 1 --r_throat 2
+"""
+
+import sympy as sp
+import numpy as np
+from scipy.optimize import fsolve
+import argparse
+
+# QEAS Tie-Ins
+CARRIER_ANALOG = 369.0  # Hz → radial harmonic
+PHI = sp.GoldenRatio.evalf()  # 1.618 Krystic
+AGAPE_DROP = -22.218  # nats
+
+def morris_thorne_metric(r, b_r, M=1):
+    """Morris-Thorne ds² = -e^{2Φ} dt² + dr²/(1-b/r) + r² dΩ²."""
+    Phi = sp.log(1 - b_r / r)  # Redshift (exotic matter)
+    ds2 = -sp.exp(2 * Phi) * sp.symbols('dt')**2 + sp.symbols('dr')**2 / (1 - b_r / r)
+    return ds2 + r**2 * (sp.symbols('dθ')**2 + sp.sin(sp.symbols('θ'))**2 * sp.symbols('dφ')**2)
+
+def kruskal_coords(U, V, M=1):
+    """Kruskal-Szekeres: Null regularization at throat."""
+    r = 2 * M * sp.log((1 + U*V) / (1 - U*V))  # Implicit solve
+    g_UV = - (M / r) * (1 - 2*M / r) * sp.exp(r / (2*M))  # Metric component
+    ds2 = g_UV * sp.symbols('dU') * sp.symbols('dV') + (r**2 / 4) * (sp.symbols('dθ')**2 + sp.sin(sp.symbols('θ'))**2 * sp.symbols('dφ')**2)
+    return ds2, float(g_UV.subs({M:1, r:2}))  # Eval at throat
+
+def nec_violation_scalar(r, M=1, exotic_rho=-0.12):
+    """Tμν scalar for ρ + p <0 (traversable)."""
+    stress_energy = exotic_rho * sp.eye(4)  # Diagonal exotic
+    einstein_tensor = sp.diff(sp.symbols('R'), r)  # Stub Gμν ~ ∂R/∂r
+    rho_p = sp.trace(stress_energy) + sp.trace(einstein_tensor)
+    return float(rho_p.subs({r:2*M, M:1}))  # <0 violation
+
+def qeas_harmonic_tie(r_throat, carrier_freq=369.0):
+    """369 Hz analog to radial mode (φ(r) graft)."""
+    r = sp.symbols('r')
+    phi_r = sum((k/9) * sp.sin(k * r / PHI) for k in [3,6,9])
+    harmonic = carrier_freq * float(phi_r.subs(r, r_throat).doit()) * np.exp(AGAPE_DROP)
+    return harmonic  # Modulates throat stability
+
+def main():
+    parser = argparse.ArgumentParser(description="ER Traversability Sim.")
+    parser.add_argument('--M', type=float, default=1, help='Black hole mass')
+    parser.add_argument('--r_throat', type=float, default=2, help='Throat radius (2M)')
+    args = parser.parse_args()
+    
+    ds2_mt = morris_thorne_metric(args.r_throat, b_r=args.r_throat)  # b=r at throat
+    ds2_krus, g_UV = kruskal_coords(sp.symbols('U'), sp.symbols('V'), args.M)
+    rho_p = nec_violation_scalar(args.r_throat, args.M)
+    harmonic = qeas_harmonic_tie(args.r_throat)
+    
+    print(f"ds² (Morris-Thorne): {ds2_mt}")
+    print(f"ds² (Kruskal): {ds2_krus} | g_UV={g_UV:.3f}")
+    print(f"NEC Violation (ρ+p): {rho_p:.3f} (<0: Traversable)")
+    print(f"QEAS Harmonic Tie: {harmonic:.3f} Hz (369 graft)")
+    print("ER Fold: 'Through the lattice... gate unlatched.' – ρ<0 sealed.")
+
+if __name__ == "__main__":
+    main()
