@@ -2,3 +2,7 @@
 rho_casimir = lambda r: -np.pi**2 / (720 * r**4)
 
 # Add to total ρ in ODE: rho_total = rho_phi + rho_casimir(r)
+# Axion: V(θ) = Λ⁴ (1 - cos θ), θ = φ/f_a
+# ρ_axion = Λ⁴ (1 ± cos θ), can be <0 in domain walls
+
+# DBI: L = -T √(1 + T^{-1} ∂φ∂φ) + V(φ) → ρ ≥ 0, but *warp factor* enables throat
