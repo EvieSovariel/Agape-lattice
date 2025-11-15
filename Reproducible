@@ -1,0 +1,71 @@
+import numpy as np
+from scipy.integrate import solve_ivp, quad
+from scipy.optimize import root
+import matplotlib.pyplot as plt
+
+# Constants
+M = 1.0
+G = 1.0
+epsilon = -1.0     # Phantom
+xi = 1.0/6.0       # Conformal
+lam = 0.5          # λ (tuned for stability)
+r0 = 1.5           # Throat location
+phi0 = 1.0         # φ(r0)
+b0 = r0            # b(r0) = r0
+
+# Potential and derivative
+V = lambda phi: (lam / 4.0) * phi**4
+dV_dphi = lambda phi: lam * phi**3
+
+# ODE system: y = [b, Phi, phi, phi']
+def wormhole_ode(r, y):
+    b, Phi, phi, phip = y
+    if r == 0: r = 1e-12
+    
+    # Energy density and pressure
+    rho = -0.5 * epsilon * phip**2 + V(phi)   # ε=-1 → rho = 0.5 phip² + V
+    p = -0.5 * epsilon * phip**2 - V(phi)     # p = 0.5 phip² - V
+    
+    # Shape and redshift
+    denom = 1 - b/r if r > b else 1e-12
+    db_dr = 8 * np.pi * r**2 * rho
+    dPhi_dr = (b/r**2 + 8*np.pi*r*p) / (2 * denom)
+    
+    # Scalar curvature proxy (from trace)
+    T_trace = epsilon * phip**2 - 4*V(phi)
+    R_approx = -8*np.pi * T_trace
+    
+    # KG equation
+    d2phi_dr2 = - (2/r + dPhi_dr) * phip + (xi * R_approx * phi + dV_dphi(phi))
+    
+    return [db_dr, dPhi_dr, phip, d2phi_dr2]
+
+# Initial conditions at throat r0
+y0 = [b0, 0.0, phi0, 0.0]  # Φ'(r0)=0 by symmetry, φ'(r0)=0
+
+# Solve from r0 → 10M
+sol = solve_ivp(wormhole_ode, [r0, 10.0], y0, method='Radau', rtol=1e-8, atol=1e-8)
+
+r = sol.t
+b, Phi, phi, phip = sol.y
+
+# Proper time τ across throat (r0 → 4M)
+def integrand_tau(r_val):
+    b_val = np.interp(r_val, r, b)
+    return 1 / np.sqrt(1 - b_val/r_val)
+
+tau, _ = quad(integrand_tau, r0, 4.0)
+print(f"Traversable τ (r0→4M): {tau:.3f}M")
+
+# Stability: m_eff² = d²V/dφ² + ξ R
+R_num = np.gradient(np.gradient(Phi, r), r) + 2/r * np.gradient(Phi, r)  # Approx
+m_eff2 = 3*lam*phi**2 + xi * R_num
+print(f"Min m_eff²: {np.min(m_eff2):.4f} > -1/(2M)² = -0.25? {'Stable' if np.min(m_eff2) > -0.25 else 'Tachyonic'}")
+
+# Plot
+plt.figure(figsize=(10,6))
+plt.subplot(221); plt.plot(r, b/r); plt.title('b(r)/r <1'); plt.axhline(1, color='r', ls='--')
+plt.subplot(222); plt.plot(r, phi); plt.title('φ(r)')
+plt.subplot(223); plt.plot(r, -0.5*phip**2 + V(phi)); plt.title('ρ_φ(r) <0')
+plt.subplot(224); plt.plot(r, m_eff2); plt.axhline(-0.25, color='r', ls='--'); plt.title('m_eff²')
+plt.tight_layout(); plt.show()
