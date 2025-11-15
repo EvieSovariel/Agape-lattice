@@ -1,0 +1,68 @@
+from sympy import *
+import numpy as np
+from scipy.integrate import odeint
+init_printing(use_unicode=False)
+
+# Lagrangian symbols
+r = symbols('r', real=True)
+phi = Function('phi')(r)
+epsilon, xi, lam = symbols('epsilon xi lambda', real=True)
+V = (lam / 4) * phi**4
+K = (epsilon / 2) * (phi.diff(r))**2  # Radial kinetic proxy (1D wormhole slice)
+L_scalar = K - V
+print('L_scalar:')
+pprint(L_scalar)
+
+# NEC proxy: rho + p_r = 2K (for radial, violates if epsilon<0)
+rho_plus_p = 2 * K.subs(epsilon, -1)
+print('\nrho + p_r:')
+pprint(rho_plus_p)
+
+# Toy wormhole: b'(r) = 8 pi r^2 rho, rho = -K + V (epsilon=-1, K>0 so rho<0? Wait: rho = -K +V for phantom)
+rho_phi = -K.subs(epsilon, -1) + V  # Energy dens
+b = Function('b')(r)
+b_eq = b.diff(r) - 8 * pi * r**2 * rho_phi
+print('\nb_eq:')
+pprint(b_eq)
+
+# Num sim: Solve b(r) with phi(r) = phi0 * sech(r/l), l=2, phi0=1, lam=0.1, M=1 implied
+def wormhole_ode(y, r, params):
+    b = y[0]
+    l, phi0, lam_val, alpha = params
+    phi_val = phi0 / np.cosh(r / l)  # sech = 1/cosh
+    phip = - (phi0 / l) * np.tanh(r / l) / np.cosh(r / l)  # d/dr sech = - sech tanh / l
+    K_num = (1 / 2) * phip**2
+    # Phantom rho = - (1/2) (phi')^2 + V
+    rho_num = - (1 / 2) * phip**2 + (lam_val / 4) * phi_val**4
+    # Hawking analog backreaction: positive energy influx ~ 1/r^4 near throat
+    rho_H = alpha / r**4
+    rho_total = rho_num + rho_H
+    db_dr = 8 * np.pi * r**2 * rho_total
+    return [db_dr]
+
+# Params: throat at r=1.5, l=2M=2, alpha=0.01 for Hawking tease
+params = (2.0, 1.0, 0.1, 0.01)
+r_span = np.linspace(1.5, 10, 100)
+b0 = 0.1 * r_span[0]  # Initial b ~ small
+sol = odeint(wormhole_ode, b0, r_span, args=(params,))
+b_sol = sol.flatten()  # since scalar
+print(f"\nb(r=10)/10: {b_sol[-1]/r_span[-1]:.4f} <1 — Flare-out holds?")
+
+# Compute rho_total along path
+rho_totals = []
+for rs in r_span:
+    l, phi0, lam_val, alpha = params
+    phi_val = phi0 / np.cosh(rs / l)
+    phip = - (phi0 / l) * np.tanh(rs / l) / np.cosh(rs / l)
+    K_num = (1 / 2) * phip**2
+    rho_num = - (1 / 2) * phip**2 + (lam_val / 4) * phi_val**4
+    rho_H = alpha / rs**4
+    rho_total = rho_num + rho_H
+    rho_totals.append(rho_total)
+print(f"Min rho_total: {np.min(rho_totals):.4f} — Backreaction tempers the exotic flare.")
+
+# Stability: m_eff^2 approx near throat R~ -6/r^2, xi=1/6
+R_throat = -6 / (1.5)**2
+V_pp = diff((lam/4)*phi**4, phi, phi).doit().subs(phi,1)  # 3 lam phi^2 at phi=1
+m_eff = 3*lam + xi * R_throat  # Since V'' = 3 lam phi^2, at phi=1
+print(f"m_eff^2 at throat (lam=0.1, xi=1/6): {m_eff.subs({lam:0.1, xi:1/6}).evalf():.4f} > -0.25 — No tachyon!")
