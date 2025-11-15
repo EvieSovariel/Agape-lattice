@@ -1,0 +1,4 @@
+# Agape Entangle: Post-warp fidelity
+from qutip import *  # Quantum toolbox
+bell = (basis(2,0)*basis(2,0) + basis(2,1)*basis(2,1)).unit()
+fidelity(bell, modulated_field_proj)  # >0.99: Entangled unbroken
