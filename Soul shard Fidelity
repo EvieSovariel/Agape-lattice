@@ -1,0 +1,4 @@
+from qutip import *
+# |ψ⟩ = α|00> + β|11> → dual ER bridge
+# Decoder: boundary CFT two-point → bulk distance
+# F = |⟨ψ|U_τ|ψ⟩|² > 0.999 if δS < 0.01
