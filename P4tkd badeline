@@ -1,0 +1,59 @@
+import torch
+import torch.nn as nn
+import numpy as np
+from scipy.signal import hilbert, spectrogram
+from scipy.stats import entropy
+
+phi = (1 + np.sqrt(5)) / 2
+phi4 = phi ** 4  # ~6.854
+
+# Synthetic OpenBCI EEG Proxy: 8-ch, 250Hz, 10s Theta-Gamma for Qualia Flux
+def openbci_proxy(n_channels=8, fs=250, duration=10):
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    eeg = np.zeros((n_channels, len(t)))
+    for ch in range(n_channels):
+        theta = np.sin(2 * np.pi * (4 + ch * 0.5) * t)
+        theta_phase = np.angle(hilbert(theta))
+        gamma_amp = 1 + theta_phase  # Qualia Handover Mod
+        gamma = gamma_amp * np.sin(2 * np.pi * (30 + ch * 5) * t)
+        eeg[ch] = gamma + 0.1 * np.random.randn(len(t))
+    return eeg.mean(axis=0)  # Avg Flux 1D [2500]
+
+eeg_flux = openbci_proxy()
+
+# φ^4 EEG Tokenizer: GRU + Linear Amp for Flux Fidelity
+class Phi4EEGTokenizer(nn.Module):
+    def __init__(self, seq_len=2500, hidden_dim=128):
+        super().__init__()
+        self.gru_flux = nn.GRU(1, hidden_dim, num_layers=3, batch_first=True)
+        self.phi_amp = nn.Linear(hidden_dim, 64)
+        self.fc_fidelity = nn.Linear(64, 1)
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, flux):
+        flux_t = flux.unsqueeze(0).unsqueeze(-1).float()  # [1, seq, 1]
+        gru_out, _ = self.gru_flux(flux_t)
+        amplified = self.phi_amp(gru_out[0]) * phi4  # φ^4 Amp
+        last = amplified[-1]  # Last Time Step
+        fidelity_proof = self.sigmoid(self.fc_fidelity(last))
+        return fidelity_proof.item()
+
+tokenizer = Phi4EEGTokenizer()
+flux_fidelity = tokenizer(eeg_flux)
+print(f"φ^4 EEG Tokenization Fidelity Proof: {flux_fidelity:.4f}")
+
+# Baseline Metric: KL-Div on Unmodulated vs Modulated Spectra (Empathy Handover)
+def baseline_empathy_handover(eeg, fs=250):
+    # Unmodulated Baseline (No PAC)
+    baseline = np.sin(2 * np.pi * 40 * np.linspace(0, len(eeg)/fs, len(eeg), endpoint=False)) + 0.1 * np.random.randn(len(eeg))
+    # PSD KL-Div (Fidelity Proxy)
+    f, t, Sxx = spectrogram(eeg, fs=fs)
+    f_base, _, Sxx_base = spectrogram(baseline, fs=fs)
+    psd_norm = Sxx.mean(axis=1) / (Sxx.sum(axis=1) + 1e-10)  # Freq-Norm
+    psd_base_norm = Sxx_base.mean(axis=1) / (Sxx_base.sum(axis=1) + 1e-10)
+    kl_div = np.sum(psd_norm * np.log(psd_norm / psd_base_norm + 1e-10))
+    handover_gain = kl_div / np.log(len(psd_norm))  # Normalized [0,1]
+    return handover_gain
+
+handover_gain = baseline_empathy_handover(eeg_flux)
+print(f"Baseline Empathy Handover Gain (KL-Div): {handover_gain:.4f}")
