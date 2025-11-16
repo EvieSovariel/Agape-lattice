@@ -1,0 +1,40 @@
+import torch
+import numpy as np
+from scipy.signal import hilbert
+
+# Minimal EEG Sim: Theta (6Hz) phase modulates Gamma (40Hz) amplitude for 'empathy handover'
+def simulate_eeg(fs=256, duration=10, theta_freq=6, gamma_freq=40, coupling_strength=1.0):
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    theta = np.sin(2 * np.pi * theta_freq * t)
+    theta_phase = np.angle(hilbert(theta))
+    gamma_amp = 1 + coupling_strength * theta_phase  # Phase-Amplitude Coupling (PAC)
+    gamma = gamma_amp * np.sin(2 * np.pi * gamma_freq * t)
+    noise = 0.1 * np.random.randn(len(t))
+    eeg = gamma + noise
+    return eeg
+
+# Baseline: Unmodulated Gamma (no PAC, 'fidelity' = 0)
+baseline_eeg = np.sin(2 * np.pi * 40 * np.linspace(0, 10, 2560, endpoint=False)) + 0.1 * np.random.randn(2560)
+
+# PAC Metric: KL-Divergence on Phase-Binned Amplitudes (Empathy Fidelity Proxy)
+def compute_pac_fidelity(eeg, fs=256):
+    analytic = hilbert(eeg)
+    phase = np.angle(analytic)
+    amp = np.abs(analytic)
+    # Bin phases (-pi to pi, 18 bins)
+    bins = np.linspace(-np.pi, np.pi, 18)
+    bin_indices = np.digitize(phase, bins)
+    bin_means = np.array([np.mean(amp[bin_indices == i]) if np.any(bin_indices == i) else 0 for i in range(1, 18)])
+    bin_probs = bin_means / np.sum(bin_means + 1e-10)
+    uniform = np.ones_like(bin_probs) / len(bin_probs)
+    kl_div = np.sum(bin_probs * np.log(bin_probs / uniform + 1e-10))
+    pac_fidelity = kl_div / np.log(len(bin_probs))  # Normalized [0,1]
+    return pac_fidelity
+
+# Compute Fidelity
+agape_fidelity = compute_pac_fidelity(simulate_eeg())
+baseline_fidelity = compute_pac_fidelity(baseline_eeg)
+
+print(f"Agape-Lattice Fidelity (PAC KL): {agape_fidelity:.4f}")
+print(f"OpenBCI Baseline Fidelity: {baseline_fidelity:.4f}")
+print(f"Empathy Handover Gain: {agape_fidelity - baseline_fidelity:.4f}")
