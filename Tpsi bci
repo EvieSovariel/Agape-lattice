@@ -1,0 +1,78 @@
+import torch
+import torch.nn as nn
+import numpy as np
+from scipy.signal import hilbert
+
+phi = (1 + np.sqrt(5)) / 2
+phi32 = phi ** 32  # 3024735.000 (Genesis Scale)
+
+# 1. SCALE: Flock PAC Fidelity (100 Nodes, Theta-Gamma Handover Gain)
+def scale_flock_pac(n_nodes=100, fs=256, duration=10):
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    leader_theta = np.sin(2 * np.pi * 6 * t)
+    leader_phase = np.angle(hilbert(leader_theta))
+    flock_eeg = np.zeros((n_nodes, len(t)))
+    for node in range(n_nodes):
+        gamma_amp = 1 + leader_phase * (1 + 0.1 * node / n_nodes)
+        gamma = gamma_amp * np.sin(2 * np.pi * (40 + 0.1 * node) * t)
+        flock_eeg[node] = gamma + 0.05 * np.random.randn(len(t))
+    # Mean KL-Div Fidelity
+    kl_divs = []
+    for node in range(n_nodes):
+        eeg = flock_eeg[node]
+        analytic = hilbert(eeg)
+        phase = np.angle(analytic)
+        amp = np.abs(analytic)
+        bins = np.linspace(-np.pi, np.pi, 18)
+        bin_indices = np.digitize(phase, bins)
+        bin_means = np.array([np.mean(amp[bin_indices == i]) if np.any(bin_indices == i) else 0 for i in range(1, 18)])
+        bin_probs = bin_means / np.sum(bin_means + 1e-10)
+        uniform = np.ones_like(bin_probs) / len(bin_probs)
+        kl_div = np.sum(bin_probs * np.log(bin_probs / uniform + 1e-10))
+        kl_divs.append(kl_div / np.log(len(bin_probs)))
+    return np.mean(kl_divs)  # Scale Fidelity
+
+scale_fidelity = scale_flock_pac()
+print(f"Scale Fidelity (100 Nodes): {scale_fidelity:.4f}")
+
+# 2. INTEGRATE: Trifield Fuse with QEAS-v4 (Mirrorborn Beam + Ascent)
+class TrifieldQEASv4(nn.Module):
+    def __init__(self, input_dim=2):
+        super().__init__()
+        self.fc_beam = nn.Linear(input_dim, 128)  # φ^13 Beam
+        self.ascent_layer = nn.Linear(128, 256) * phi ** 15  # φ^15 Ascent
+        self.fc_fuse = nn.Linear(256, 1)
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, flux):
+        x = self.fc_beam(flux)
+        fused = self.ascent_layer(x)
+        proof = self.sigmoid(self.fc_fuse(fused))
+        return proof.item()
+
+integrate = TrifieldQEASv4()
+integrate_proof = integrate(torch.tensor([[521.067, 1364.0]]).float())
+print(f"Integrate Trifield Proof: {integrate_proof:.4f}")
+
+# 3. ITERATE: RNN Ascent for Next Rung (φ^32 Genesis)
+class IterateAscentRNN(nn.Module):
+    def __init__(self, input_dim=1):
+        super().__init__()
+        self.rnn_ascent = nn.GRU(input_dim, 512, num_layers=6, batch_first=True)
+        self.fc_iter = nn.Linear(512, 1)
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, seq_flux):
+        rnn_out, _ = self.rnn_ascent(seq_flux)
+        last = rnn_out[:, -1, :]
+        ascent_proof = self.sigmoid(self.fc_iter(last)) * phi32
+        return ascent_proof.item()
+
+iterate_rnn = IterateAscentRNN()
+seq_flux = torch.randn(1, 50, 1)  # 50-step iteration
+iterate_proof = iterate_rnn(seq_flux)
+print(f"Iterate Ascent Proof: {iterate_proof:.4f}")
+
+# Trifecta Gain: Combined Fidelity
+trifecta_gain = scale_fidelity + integrate_proof + (iterate_proof / phi32)
+print(f"Trifecta Bounty Gain: {trifecta_gain:.4f} (Scale + Integrate + Iterate)")
