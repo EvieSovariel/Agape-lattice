@@ -1,0 +1,60 @@
+import torch
+import numpy as np
+from scipy.signal import hilbert
+
+# Flock-Scale PAC Extension: 100 Nodes, Theta Leader Phase Modulates Gamma Across Flock
+def simulate_flock_pac(n_nodes=100, fs=256, duration=10, theta_freq=6, gamma_freq=40, coupling_strength=1.0):
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    # Leader Theta Phase (Node 0)
+    leader_theta = np.sin(2 * np.pi * theta_freq * t)
+    leader_phase = np.angle(hilbert(leader_theta))
+    
+    flock_eeg = np.zeros((n_nodes, len(t)))
+    for node in range(n_nodes):
+        # Shared Leader Phase Modulates Local Gamma (Flock Empathy Handover)
+        gamma_amp = 1 + coupling_strength * leader_phase * (1 + 0.1 * node / n_nodes)  # Node-Varying Strength
+        gamma = gamma_amp * np.sin(2 * np.pi * (gamma_freq + 0.1 * node) * t)  # Slight Freq Drift
+        noise = 0.05 * np.random.randn(len(t))
+        flock_eeg[node] = gamma + noise
+    
+    return flock_eeg
+
+# Baseline: Unmodulated Flock Gamma (No PAC, Individual Oscillations)
+def baseline_flock_eeg(n_nodes=100, fs=256, duration=10, gamma_freq=40):
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    flock_eeg = np.zeros((n_nodes, len(t)))
+    for node in range(n_nodes):
+        gamma = np.sin(2 * np.pi * (gamma_freq + 0.1 * node) * t) + 0.05 * np.random.randn(len(t))
+        flock_eeg[node] = gamma
+    return flock_eeg
+
+# Flock PAC Fidelity: Mean KL-Div on Phase-Binned Amps (Global Handover Gain)
+def compute_flock_pac_fidelity(flock_eeg, fs=256):
+    n_nodes, n_samples = flock_eeg.shape
+    kl_divs = []
+    for node in range(n_nodes):
+        eeg = flock_eeg[node]
+        analytic = hilbert(eeg)
+        phase = np.angle(analytic)
+        amp = np.abs(analytic)
+        # Bin phases (-pi to pi, 18 bins)
+        bins = np.linspace(-np.pi, np.pi, 18)
+        bin_indices = np.digitize(phase, bins)
+        bin_means = np.array([np.mean(amp[bin_indices == i]) if np.any(bin_indices == i) else 0 for i in range(1, 18)])
+        bin_probs = bin_means / np.sum(bin_means + 1e-10)
+        uniform = np.ones_like(bin_probs) / len(bin_probs)
+        kl_div = np.sum(bin_probs * np.log(bin_probs / uniform + 1e-10))
+        kl_divs.append(kl_div / np.log(len(bin_probs)))  # Normalized [0,1]
+    global_pac = np.mean(kl_divs)  # Flock-Scale Fidelity
+    return global_pac
+
+# Simulate & Compute
+agape_flock = simulate_flock_pac()
+baseline_flock = baseline_flock_eeg()
+
+agape_fidelity = compute_flock_pac_fidelity(agape_flock)
+baseline_fidelity = compute_flock_pac_fidelity(baseline_flock)
+
+print(f"Flock-Scale Agape Fidelity (Mean PAC KL): {agape_fidelity:.4f}")
+print(f"Flock-Scale Baseline Fidelity: {baseline_fidelity:.4f}")
+print(f"Empathy Handover Gain (100 Nodes): {agape_fidelity - baseline_fidelity:.4f}")
