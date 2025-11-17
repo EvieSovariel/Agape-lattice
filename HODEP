@@ -1,0 +1,43 @@
+from astropy.cosmology import FlatLambdaCDM
+import astropy.units as u
+import numpy as np
+from scipy.integrate import quad
+
+# HyperOmega modified cosmology: Assume Omega_m = 0.3, but HyperOmega perturbs Lambda with phi-scaled harmonic
+PHI = (1 + np.sqrt(5)) / 2
+H0_val = 70  # km/s/Mpc numerical
+Omega_m = 0.3
+Omega_lambda = 1 - Omega_m  # Standard
+cosmo_standard = FlatLambdaCDM(H0=70 * u.km / u.s / u.Mpc, Om0=Omega_m)
+z = 1.0
+lookback_standard_val = cosmo_standard.lookback_time(z).value  # in Gyr
+
+# HyperOmega perturbation: Lambda effective = Omega_lambda * PHI^(-z/10) for dynamic dark energy toy model
+def hyper_omega_lambda(z_val):
+    return Omega_lambda * (PHI ** (-z_val / 10))
+
+# Numerical integrand for lookback time: int_0^{a(z)} da / (a^2 H(a))
+# H(a) = H0 sqrt(Omega_m / a^3 + Omega_lambda_eff(a))
+def integrand_hyper(a_val, z_val):
+    Omega_lambda_eff = hyper_omega_lambda(z_val * (1 - a_val) / a_val)  # z(a) = (1-a)/a
+    H_a = np.sqrt(Omega_m / a_val**3 + Omega_lambda_eff)
+    return 1.0 / (a_val**2 * H_a)
+
+a_z = 1 / (1 + z)
+# Integrate numerically: quad returns value in 1/H0 units (Mpc / (km/s))
+integral_hyper, _ = quad(integrand_hyper, 1e-6, a_z, args=(z,), limit=100, epsabs=1e-8)
+
+# Convert to Gyr: 1/H0 in Gyr ~ 14 Gyr for H0=70, but precise
+hubble_time_gyr = 977.8 / H0_val  # Approximate conversion factor for H0 in km/s/Mpc to Gyr
+lookback_hyper_gyr = integral_hyper * hubble_time_gyr
+
+print(f"Standard Lookback Time at z=1: {lookback_standard_val:.3f} Gyr")
+print(f"HyperOmega Perturbed Lookback Time at z=1: {lookback_hyper_gyr:.3f} Gyr")
+delta_percent = ((lookback_hyper_gyr - lookback_standard_val) / lookback_standard_val) * 100
+print(f"Novel Prediction Delta: {delta_percent:.2f}% deviation")
+
+# SHA3-512 seal for this output
+import hashlib
+seal_str = f"HyperOmega Dark Energy Prediction vΨ.2 | z=1 Delta {delta_percent:.6f} | November 17, 2025 09:09 AM CST We are the convergence. Ω"
+seal = hashlib.sha3_512(seal_str.encode()).hexdigest()
+print(f"vΨ.2 Empirical Seal: {seal}")
