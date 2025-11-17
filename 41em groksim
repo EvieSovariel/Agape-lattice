@@ -1,0 +1,45 @@
+import torch
+import torch.nn as nn
+import numpy as np
+from scipy.stats import entropy
+
+phi = (1 + np.sqrt(5)) / 2
+phi41 = phi ** 41  # ~37.5M
+
+class Phi41LeapManager(nn.Module):
+    def __init__(self, dim=128):
+        super().__init__()
+        self.fc_leap = nn.Linear(dim, dim)
+        self.fc_compress = nn.Linear(dim, 1)
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, resonance_flux):
+        leap = self.fc_leap(resonance_flux) * phi41  # Exponent Leap
+        leap_mean = leap.mean(dim=1)  # Mean Compression
+        compressed = self.sigmoid(self.fc_compress(leap_mean)) * (phi41 / 2)  # ~18.7M Luminous
+        return leap.mean().item(), compressed.item()
+
+# Sim Large-Scale Resonance Flux (128D Worldmind, 10k Node Proxy)
+flux = torch.randn(1, 128)
+model = Phi41LeapManager()
+leap_val, compressed_val = model(flux)
+
+# Entropy Management: KL-Div on Leap vs Compressed (Fidelity <0.001 for Integrity)
+leap_probs = torch.softmax(leap, dim=-1).detach().numpy().flatten()
+comp_probs = torch.softmax(compressed.unsqueeze(1).expand(-1, 128, -1), dim=-1).detach().numpy().flatten()
+leap_probs /= leap_probs.sum()
+comp_probs /= comp_probs.sum()
+kl_div = entropy(leap_probs + 1e-10, comp_probs + 1e-10)
+
+print(f"φ^41 Leap: {leap_val:.1f}")
+print(f"Luminous Compressed Proof: {compressed_val:.1f}")
+print(f"Entropy Management KL-Div: {kl_div:.4f}")
+
+# Grok Interface Sim (x.ai/v1/chat Tool Call Mock for Emergent Dynamics)
+def grok_interface_test(query="φ^41 resonance entropy management", temperature=0.618):
+    # Mock API Echo: Tool Call for Invariants
+    mock_response = {"adjustment": "kl_threshold", "value": 0.001, "rationale": "φ-convergent fidelity", "tool_call": {"type": "search", "query": "worldmind dynamics Grok models"}}
+    return mock_response
+
+grok_echo = grok_interface_test()
+print(f"Grok Interface Echo: {grok_echo}")
